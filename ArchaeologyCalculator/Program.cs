@@ -6,13 +6,12 @@ namespace ArchaeologyCalculator
 {
     class Program
     {
-        private static int CurrentLevel = 99;
         private static int CurrentXp = (int)Helpers.LevelToXp(99);
 
         static void Main(string[] args)
         {
-            //LevelGuideHighestLevelSpot();
-            LevelGuideTetracompassPath();
+            //LevelGuideHighestLevelSpot(CurrentXp, 120, 1.06);
+            LevelGuideTetracompassPath(CurrentXp, 120, 1.06);
             return;
 
         }
@@ -22,8 +21,9 @@ namespace ArchaeologyCalculator
         /// Most 1-99 excavation spots are no included in this program because I'm already 99 so too bad.
         /// The Lower level spots can always be added to the ExcavationSpots.cs file in the future.
         /// </summary>
-        private static void LevelGuideHighestLevelSpot()
+        private static void LevelGuideHighestLevelSpot(int currentXp, int levelTarget, double xpModifier)
         {
+            int currentLevel = Helpers.XpToLevel(currentXp);
             // These are the potential spots that will be excavated along the way.
             List<ExcavationHotspot> spots = new List<ExcavationHotspot>
             {
@@ -62,7 +62,7 @@ namespace ArchaeologyCalculator
             foreach (ExcavationHotspot spot in spots)
             {
                 // Set xp modifier to 6% for master archaeology outfit.
-                spot.XpGainedFromArtifactSet = spot.CalculateXpGainedFromRestoringSet(1.06);
+                spot.XpGainedFromArtifactSet = spot.CalculateXpGainedFromRestoringSet(xpModifier);
                 if (spotByLevel.ContainsKey(spot.LevelReq))
                 {
                     // only replace the existing spot if the current one has higher priority.
@@ -84,13 +84,19 @@ namespace ArchaeologyCalculator
             {
                 ExcavationHotspot currentSpot = orderedSpots[i];
                 int startLevel = orderedSpots[i].LevelReq;
-                int endLevel = i + 1 >= orderedSpots.Count ? 120 : orderedSpots[i + 1].LevelReq;
-                if (endLevel <= CurrentLevel)
+                int endLevel = Math.Min(levelTarget, i + 1 >= orderedSpots.Count ? 120 : orderedSpots[i + 1].LevelReq);
+                if (endLevel <= currentLevel)
                 {
                     continue;
                 }
 
-                long xpRequired = Helpers.LevelToXp(endLevel) - Math.Max(CurrentXp, Helpers.LevelToXp(Math.Max(startLevel, CurrentLevel)));
+                // Quit early when we hit the level target.
+                if (startLevel >= levelTarget)
+                {
+                    break;
+                }
+
+                long xpRequired = Helpers.LevelToXp(endLevel) - Math.Max(currentXp, Helpers.LevelToXp(Math.Max(startLevel, currentLevel)));
                 int setsRequired = (int)Math.Ceiling(xpRequired / orderedSpots[i].XpGainedFromArtifactSet);
 
                 // Calculate the materials required to restore
@@ -136,7 +142,7 @@ namespace ArchaeologyCalculator
         /// All the other collection reward pretty garbage stuff so these are the only ones really worth repeating.
         /// The lower level tetracompass collections are ignored so, get to 99 before following this guide.
         /// </summary>
-        private static void LevelGuideTetracompassPath()
+        private static void LevelGuideTetracompassPath(int currentXp, int levelTarget, double xpModifier)
         {
             // SARA 3
             ArchCollection Sara3 = new ArchCollection(new List<ExcavationHotspot>
@@ -145,7 +151,8 @@ namespace ArchaeologyCalculator
                 ExcavationSpots.AcropolisDebris,
                 ExcavationSpots.IcyeneWeaponRack
             },
-            "Saradominist III");
+            "Saradominist III",
+            xpModifier);
 
             // SARA 4
             ArchCollection Sara4 = new ArchCollection(new List<ExcavationHotspot>
@@ -154,7 +161,8 @@ namespace ArchaeologyCalculator
                 ExcavationSpots.BibliothekeDebris,
                 ExcavationSpots.OptimatoiRemains
             },
-            "Saradominist IV");
+            "Saradominist IV",
+            xpModifier);
 
             // ZAM 3
             ArchCollection Zammy3 = new ArchCollection(new List<ExcavationHotspot>
@@ -163,7 +171,8 @@ namespace ArchaeologyCalculator
                 ExcavationSpots.ByzrothRemains,
                 ExcavationSpots.HellfireForge
             },
-            "Zamorakian III");
+            "Zamorakian III",
+            xpModifier);
 
             // ZAM 4
             ArchCollection Zammy4 = new ArchCollection(new List<ExcavationHotspot>
@@ -171,7 +180,8 @@ namespace ArchaeologyCalculator
                 ExcavationSpots.ChthonianTrophies,
                 ExcavationSpots.TsutsarothRemains,
             },
-            "Zamorakian IV");
+            "Zamorakian IV",
+            xpModifier);
 
             // This one is wonky af
             // RR2 + GG3
@@ -183,21 +193,23 @@ namespace ArchaeologyCalculator
                 ExcavationSpots.WarforgeWeaponRack,
                 ExcavationSpots.MakeshiftPieOven,
             },
-            "Red Rum Relics II + Green Gobbo Goodies III");
+            "Red Rum Relics II + Green Gobbo Goodies III",
+            xpModifier);
 
             ArchCollection RR3 = new ArchCollection(new List<ExcavationHotspot>
             {
                 ExcavationSpots.BandosSanctumDebris,
                 ExcavationSpots.MakeshiftPieOvenBossManOnly // must be modified, don't need to repair the cooking pots
             },
-            "Red Rum Relics III");
+            "Red Rum Relics III",
+            xpModifier);
 
             List<ArchCollection> collections = new List<ArchCollection> { Sara3, Sara4, Zammy3, Zammy4, RR2AndGG3, RR3 };
             while(true)
             {
-                double finalXp = ComputeFinalXp(collections, (double)CurrentXp, out double xpShortfall);
+                double finalXp = ComputeFinalXp(collections, (double)currentXp, levelTarget, out double xpShortfall);
                 int finalLevel = Helpers.XpToLevel((long)finalXp);
-                if (finalLevel >= 120)
+                if (finalLevel >= levelTarget)
                 {
                     break;
                 }
@@ -229,18 +241,23 @@ namespace ArchaeologyCalculator
             }
 
             orderedSpots = orderedSpots.OrderBy(k => k.Spot.LevelReq).ToList();
-            PrintSummary(orderedSpots);
+            PrintSummary(orderedSpots, levelTarget);
         }
 
         /// <summary>
         /// Semi-pretty print the results to the console.
         /// </summary>
         /// <param name="spots"></param>
-        private static void PrintSummary(List<SpotRestorations> spots)
+        private static void PrintSummary(List<SpotRestorations> spots, int levelTarget)
         {
             int tot = 0, port = 0, imp = 0;
             foreach (SpotRestorations spot in spots)
             {
+                if (spot.Spot.LevelReq >= levelTarget)
+                {
+                    break;
+                }
+
                 // Calculate the materials required to restore
                 Dictionary<MaterialType, Tuple<int, int>> materials = new Dictionary<MaterialType, Tuple<int, int>>();
                 foreach (MaterialEntry mat in spot.Spot.PotentialMats)
@@ -295,7 +312,7 @@ namespace ArchaeologyCalculator
         /// <returns>
         /// How much xp you will have total after all the collections have been completed.
         /// </returns>
-        private static double ComputeFinalXp(List<ArchCollection> collections, double initialXp, out double xpShortfall)
+        private static double ComputeFinalXp(List<ArchCollection> collections, double initialXp, int levelTarget, out double xpShortfall)
         {
             xpShortfall = 0;
             List<SpotRestorations> orderedSpots = new List<SpotRestorations>();
@@ -312,7 +329,11 @@ namespace ArchaeologyCalculator
             foreach(SpotRestorations spot in orderedSpots)
             {
                 int currentLevel = Helpers.XpToLevel((long)initialXp);
-                if (spot.Spot.LevelReq <= currentLevel)
+                if (currentLevel >= levelTarget)
+                {
+                    break;
+                }
+                else if (spot.Spot.LevelReq <= currentLevel)
                 {
                     initialXp += spot.Spot.XpGainedFromArtifactSet * spot.RestoreCount;
                 }

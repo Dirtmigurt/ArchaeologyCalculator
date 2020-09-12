@@ -219,13 +219,13 @@ namespace ArchaeologyCalculator
         /// </summary>
         /// <param name="spots"></param>
         /// <param name="name"></param>
-        public ArchCollection(IList<ExcavationHotspot> spots, string name)
+        public ArchCollection(IList<ExcavationHotspot> spots, string name, double xpModifier)
         {
             this.SpotsInCollection = new List<ExcavationHotspot>(spots);
             this.Name = name;
             foreach(ExcavationHotspot spot in spots)
             {
-                spot.XpGainedFromArtifactSet = spot.CalculateXpGainedFromRestoringSet(1.06);
+                spot.XpGainedFromArtifactSet = spot.CalculateXpGainedFromRestoringSet(xpModifier);
             }
         }
 
